@@ -13,6 +13,11 @@
 #import "DACircularProgressView.h"
 #import "MWPhotoBrowserPrivate.h"
 
+@interface MWPhotoBrowser ()
+//获取缩略图
+- (UIImage *) performImageForPhoto:(id<MWPhoto>) photo;
+@end
+
 // Private methods and properties
 @interface MWZoomingScrollView () {
     
@@ -23,6 +28,10 @@
     UIImageView *_loadingError;
     
 }
+
+
+//当前是否是预览图片(设置图片那里判断了如果imageView的image不为空时就不去刷新imageview的image值了)
+@property(nonatomic, assign) BOOL isShowPerformImage;
 
 @end
 
@@ -113,9 +122,34 @@
     }
 }
 
+
+-(void) showPerformImage
+{
+    //获取缩略图
+    if (![_photoBrowser respondsToSelector:@selector(performImageForPhoto:)]) {
+        return;
+    }
+    UIImage *scalImage = [_photoBrowser performImageForPhoto:_photo];
+    if (scalImage) {
+        _isShowPerformImage = YES;
+        _photoImageView.image = scalImage;
+        _photoImageView.hidden = NO;
+        // Setup photo frame
+        CGRect photoImageViewFrame;
+        photoImageViewFrame.origin = CGPointZero;
+        photoImageViewFrame.size = scalImage.size;
+        _photoImageView.frame = photoImageViewFrame;
+        self.contentSize = photoImageViewFrame.size;
+        
+        // Set zoom to minimum zoom
+        [self setMaxMinZoomScalesForCurrentBounds];
+    }
+}
+
+
 // Get and display image
 - (void)displayImage {
-	if (_photo && _photoImageView.image == nil) {
+	if (_photo && (_photoImageView.image == nil||_isShowPerformImage)) {
 		
 		// Reset
 		self.maximumZoomScale = 1;
@@ -126,7 +160,8 @@
 		// Get image from browser as it handles ordering of fetching
 		UIImage *img = [_photoBrowser imageForPhoto:_photo];
 		if (img) {
-			
+            _isShowPerformImage = NO;
+
 			// Hide indicator
 			[self hideLoadingIndicator];
 			
@@ -145,9 +180,11 @@
 			[self setMaxMinZoomScalesForCurrentBounds];
 			
 		} else {
-			
+            _photoImageView.hidden = YES;
+            
+            [self performSelector:@selector(showPerformImage) onThread:[NSThread mainThread] withObject:nil waitUntilDone:NO];
 			// Failed no image
-            [self displayImageFailure];
+//            [self displayImageFailure];
 			
 		}
 		[self setNeedsLayout];
