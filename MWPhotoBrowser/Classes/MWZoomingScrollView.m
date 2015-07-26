@@ -12,10 +12,12 @@
 #import "MWPhoto.h"
 #import "DACircularProgressView.h"
 #import "MWPhotoBrowserPrivate.h"
+#import "SDWebImageManager.h"
+#import "UIImageView+WebCache.h"
 
 @interface MWPhotoBrowser ()
 //获取缩略图
-- (UIImage *) performImageForPhoto:(id<MWPhoto>) photo;
+- (NSURL *) performImageForPhoto:(id<MWPhoto>) photo;
 @end
 
 // Private methods and properties
@@ -23,7 +25,7 @@
     
     MWPhotoBrowser __weak *_photoBrowser;
     MWTapDetectingView *_tapView; // for background taps
-    MWTapDetectingImageView *_photoImageView;
+//    MWTapDetectingImageView *_photoImageView;
     DACircularProgressView *_loadingIndicator;
     UIImageView *_loadingError;
     
@@ -32,6 +34,7 @@
 
 //当前是否是预览图片(设置图片那里判断了如果imageView的image不为空时就不去刷新imageview的image值了)
 @property(nonatomic, assign) BOOL isShowPerformImage;
+@property(nonatomic, strong) MWTapDetectingImageView *photoImageView;
 
 @end
 
@@ -132,8 +135,36 @@
     if (![_photoBrowser respondsToSelector:@selector(performImageForPhoto:)]) {
         return;
     }
+    NSURL *url = [_photoBrowser performImageForPhoto:_photo];
+    if (!url) {
+        return;
+    }
+    
+//    UIImage *scalImage;
+//    if([[SDWebImageManager sharedManager] cachedImageExistsForURL:url]){
+//        scalImage = [[SDWebImageManager sharedManager].imageCache imageFromDiskCacheForKey:[[SDWebImageManager sharedManager] cacheKeyForURL:url]];
+//    }
+    
+    _isShowPerformImage = YES;
+    _photoImageView.hidden = NO;
+    [self showLoadingIndicator];
+    __weak MWZoomingScrollView *ws = self;
+    [_photoImageView sd_setImageWithURL:url placeholderImage:[UIImage imageNamed:@"image_def"] completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
+        CGRect photoImageViewFrame;
+        photoImageViewFrame.origin = CGPointZero;
+        photoImageViewFrame.size = image.size;
+        ws.photoImageView.frame = photoImageViewFrame;
+        ws.contentSize = photoImageViewFrame.size;
+        
+        // Set zoom to minimum zoom
+        [ws setMaxMinZoomScalesForCurrentBounds];
+        
+    }];
+    return;
+    
     UIImage *scalImage = [_photoBrowser performImageForPhoto:_photo];
     if (scalImage) {
+        
         _isShowPerformImage = YES;
         _photoImageView.image = scalImage;
         _photoImageView.hidden = NO;
@@ -146,6 +177,9 @@
         
         // Set zoom to minimum zoom
         [self setMaxMinZoomScalesForCurrentBounds];
+    }else{
+        
+        
     }
 }
 
