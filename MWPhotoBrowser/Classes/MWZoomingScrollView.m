@@ -26,7 +26,6 @@
     MWPhotoBrowser __weak *_photoBrowser;
     MWTapDetectingView *_tapView; // for background taps
 //    MWTapDetectingImageView *_photoImageView;
-    DACircularProgressView *_loadingIndicator;
     UIImageView *_loadingError;
     
 }
@@ -35,6 +34,7 @@
 //当前是否是预览图片(设置图片那里判断了如果imageView的image不为空时就不去刷新imageview的image值了)
 @property(nonatomic, assign) BOOL isShowPerformImage;
 @property(nonatomic, strong) MWTapDetectingImageView *photoImageView;
+@property(nonatomic, strong) DACircularProgressView *loadingIndicator;
 
 @end
 
@@ -149,7 +149,12 @@
     _photoImageView.hidden = NO;
     [self showLoadingIndicator];
     __weak MWZoomingScrollView *ws = self;
-    [_photoImageView sd_setImageWithURL:url placeholderImage:[UIImage imageNamed:@"image_def"] completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
+    [_photoImageView sd_setImageWithURL:url placeholderImage:[UIImage imageNamed:@"image_def"] options:0 progress:^(NSInteger receivedSize, NSInteger expectedSize) {
+        
+        float progress = receivedSize / (float)expectedSize;
+        ws.loadingIndicator.progress = MAX(MIN(1, progress), 0);
+
+    } completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
         CGRect photoImageViewFrame;
         photoImageViewFrame.origin = CGPointZero;
         photoImageViewFrame.size = image.size;
@@ -157,9 +162,13 @@
         ws.contentSize = photoImageViewFrame.size;
         
         // Set zoom to minimum zoom
-        [ws setMaxMinZoomScalesForCurrentBounds];
-        
+        [ws setMaxMinZoomScalesOrderWidthBounds];
+        [ws hideLoadingIndicator];
     }];
+//    [_photoImageView sd_setImageWithURL:url placeholderImage:[UIImage imageNamed:@"image_def"] completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
+//        
+//        
+//    }];
     return;
     
     UIImage *scalImage = [_photoBrowser performImageForPhoto:_photo];
