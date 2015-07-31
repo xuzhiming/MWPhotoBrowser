@@ -18,6 +18,7 @@
 @interface MWPhotoBrowser ()
 //获取缩略图
 - (NSURL *) performImageForPhoto:(id<MWPhoto>) photo;
+- (NSURL *) thumbImageForPhoto:(id<MWPhoto>)photo;
 @end
 
 // Private methods and properties
@@ -132,37 +133,55 @@
 -(void) showPerformImage
 {
     //获取缩略图
-    if (![_photoBrowser respondsToSelector:@selector(performImageForPhoto:)]) {
+    [self setMaxMinZoomScalesOrderWidthBounds];
+
+    if (![_photoBrowser respondsToSelector:@selector(performImageForPhoto:)]
+        && ![_photoBrowser respondsToSelector:@selector(thumbImageForPhoto:)]
+        ) {
         return;
     }
+    
+    
+    
     NSURL *url = [_photoBrowser performImageForPhoto:_photo];
     if (!url) {
         return;
     }
     
-//    UIImage *scalImage;
-//    if([[SDWebImageManager sharedManager] cachedImageExistsForURL:url]){
-//        scalImage = [[SDWebImageManager sharedManager].imageCache imageFromDiskCacheForKey:[[SDWebImageManager sharedManager] cacheKeyForURL:url]];
-//    }
+    NSURL *thumbImgurl = [_photoBrowser thumbImageForPhoto:_photo];
+    UIImage *scalImage;
+    if([[SDWebImageManager sharedManager] cachedImageExistsForURL:thumbImgurl]){
+        scalImage = [[SDWebImageManager sharedManager].imageCache imageFromDiskCacheForKey:[[SDWebImageManager sharedManager] cacheKeyForURL:thumbImgurl]];
+    }else{
+        scalImage = [UIImage imageNamed:@"image_def"];
+    }
     
     _isShowPerformImage = YES;
     _photoImageView.hidden = NO;
     [self showLoadingIndicator];
+
     __weak MWZoomingScrollView *ws = self;
-    [_photoImageView sd_setImageWithURL:url placeholderImage:[UIImage imageNamed:@"image_def"] options:0 progress:^(NSInteger receivedSize, NSInteger expectedSize) {
+    //TODO show thumb if possible
+    
+    
+    [_photoImageView sd_setImageWithURL:url placeholderImage:scalImage options:0 progress:^(NSInteger receivedSize, NSInteger expectedSize) {
         
         float progress = receivedSize / (float)expectedSize;
         ws.loadingIndicator.progress = MAX(MIN(1, progress), 0);
 
     } completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
-        CGRect photoImageViewFrame;
-        photoImageViewFrame.origin = CGPointZero;
-        photoImageViewFrame.size = image.size;
-        ws.photoImageView.frame = photoImageViewFrame;
-        ws.contentSize = photoImageViewFrame.size;
-        
-        // Set zoom to minimum zoom
-        [ws setMaxMinZoomScalesOrderWidthBounds];
+        if (image) {
+            
+            CGRect photoImageViewFrame;
+            photoImageViewFrame.origin = CGPointZero;
+            photoImageViewFrame.size = image.size;
+            ws.photoImageView.frame = photoImageViewFrame;
+            ws.contentSize = photoImageViewFrame.size;
+            
+            // Set zoom to minimum zoom
+            [ws setMaxMinZoomScalesOrderWidthBounds];
+   
+        }
         [ws hideLoadingIndicator];
     }];
 //    [_photoImageView sd_setImageWithURL:url placeholderImage:[UIImage imageNamed:@"image_def"] completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
@@ -171,25 +190,24 @@
 //    }];
     return;
     
-    UIImage *scalImage = [_photoBrowser performImageForPhoto:_photo];
-    if (scalImage) {
-        
-        _isShowPerformImage = YES;
-        _photoImageView.image = scalImage;
-        _photoImageView.hidden = NO;
-        // Setup photo frame
-        CGRect photoImageViewFrame;
-        photoImageViewFrame.origin = CGPointZero;
-        photoImageViewFrame.size = scalImage.size;
-        _photoImageView.frame = photoImageViewFrame;
-        self.contentSize = photoImageViewFrame.size;
-        
-        // Set zoom to minimum zoom
-        [self setMaxMinZoomScalesForCurrentBounds];
-    }else{
-        
-        
-    }
+//    UIImage *scalImage = [_photoBrowser performImageForPhoto:_photo];
+//    if (scalImage) {
+//        
+//        _isShowPerformImage = YES;
+//        _photoImageView.image = scalImage;
+//        _photoImageView.hidden = NO;
+//        // Setup photo frame
+//        CGRect photoImageViewFrame;
+//        photoImageViewFrame.origin = CGPointZero;
+//        photoImageViewFrame.size = scalImage.size;
+//        _photoImageView.frame = photoImageViewFrame;
+//        self.contentSize = photoImageViewFrame.size;
+//        
+//        // Set zoom to minimum zoom
+//        [self setMaxMinZoomScalesForCurrentBounds];
+//    }else{
+//
+//    }
 }
 
 
