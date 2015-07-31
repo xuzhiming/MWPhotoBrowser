@@ -133,15 +133,13 @@
 -(void) showPerformImage
 {
     //获取缩略图
-    [self setMaxMinZoomScalesOrderWidthBounds];
+    [self setMaxMinZoomScalesForCurrentBounds];
 
     if (![_photoBrowser respondsToSelector:@selector(performImageForPhoto:)]
         && ![_photoBrowser respondsToSelector:@selector(thumbImageForPhoto:)]
         ) {
         return;
     }
-    
-    
     
     NSURL *url = [_photoBrowser performImageForPhoto:_photo];
     if (!url) {
