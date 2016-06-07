@@ -24,14 +24,14 @@
 // Private methods and properties
 @interface MWZoomingScrollView () {
     
-    MWPhotoBrowser __weak *_photoBrowser;
+//    MWPhotoBrowser __weak *_photoBrowser;
     MWTapDetectingView *_tapView; // for background taps
 //    MWTapDetectingImageView *_photoImageView;
     UIImageView *_loadingError;
     
 }
 
-
+@property(nonatomic, weak) MWPhotoBrowser *photoBrowser;
 //当前是否是预览图片(设置图片那里判断了如果imageView的image不为空时就不去刷新imageview的image值了)
 @property(nonatomic, assign) BOOL isShowPerformImage;
 @property(nonatomic, strong) MWTapDetectingImageView *photoImageView;
@@ -95,6 +95,8 @@
 }
 
 - (void)dealloc {
+    NSLog(@"%s", __PRETTY_FUNCTION__);
+    
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
@@ -133,7 +135,7 @@
 -(void) showPerformImage
 {
     //获取缩略图
-    [self setMaxMinZoomScalesForCurrentBounds];
+//    [self setMaxMinZoomScalesForCurrentBounds];
 
     if (![_photoBrowser respondsToSelector:@selector(performImageForPhoto:)]
         && ![_photoBrowser respondsToSelector:@selector(thumbImageForPhoto:)]
@@ -145,40 +147,64 @@
     if (!url) {
         return;
     }
+    UIImage *scalImage;
+    if([[SDWebImageManager sharedManager] cachedImageExistsForURL:url]){
+        scalImage = [[SDWebImageManager sharedManager].imageCache imageFromDiskCacheForKey:[[SDWebImageManager sharedManager] cacheKeyForURL:url]];
+    }
+    
+    _isShowPerformImage = YES;
+    _photoImageView.hidden = NO;
+    
+    
+    if (scalImage) {
+        [self hideLoadingIndicator];
+
+        CGRect photoImageViewFrame;
+        photoImageViewFrame.origin = CGPointZero;
+        photoImageViewFrame.size = scalImage.size;
+        self.photoImageView.frame = photoImageViewFrame;
+        self.contentSize = photoImageViewFrame.size;
+        [_photoImageView setImage:scalImage];
+        
+        // Set zoom to minimum zoom
+        [self setMaxMinZoomScalesOrderWidthBounds];
+        return;
+    }
     
     NSURL *thumbImgurl = [_photoBrowser thumbImageForPhoto:_photo];
-    UIImage *scalImage;
     if([[SDWebImageManager sharedManager] cachedImageExistsForURL:thumbImgurl]){
         scalImage = [[SDWebImageManager sharedManager].imageCache imageFromDiskCacheForKey:[[SDWebImageManager sharedManager] cacheKeyForURL:thumbImgurl]];
     }else{
         scalImage = [UIImage imageNamed:@"image_def"];
     }
     
-    _isShowPerformImage = YES;
-    _photoImageView.hidden = NO;
+    
     [self showLoadingIndicator];
 
     __weak MWZoomingScrollView *ws = self;
     //TODO show thumb if possible
-    
-    
-    [_photoImageView sd_setImageWithURL:url placeholderImage:scalImage options:0 progress:^(NSInteger receivedSize, NSInteger expectedSize) {
+    {
+        CGRect photoImageViewFrame;
+        photoImageViewFrame.origin = CGPointZero;
+        photoImageViewFrame.size = scalImage.size;
+        self.photoImageView.frame = photoImageViewFrame;
+        self.contentSize = photoImageViewFrame.size;
+        [_photoImageView setImage:scalImage];
+        
+        // Set zoom to minimum zoom
+        [self setMaxMinZoomScalesOrderWidthBounds];
+        
+    }
+
+    [_photoImageView sd_setImageWithURL:url placeholderImage:scalImage options:SDWebImageRetryFailed|SDWebImageAvoidAutoSetImage progress:^(NSInteger receivedSize, NSInteger expectedSize) {
         
         float progress = receivedSize / (float)expectedSize;
         ws.loadingIndicator.progress = MAX(MIN(1, progress), 0);
 
     } completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
         if (image) {
+            [ws displayImage];
             
-            CGRect photoImageViewFrame;
-            photoImageViewFrame.origin = CGPointZero;
-            photoImageViewFrame.size = image.size;
-            ws.photoImageView.frame = photoImageViewFrame;
-            ws.contentSize = photoImageViewFrame.size;
-            
-            // Set zoom to minimum zoom
-            [ws setMaxMinZoomScalesOrderWidthBounds];
-   
         }
         [ws hideLoadingIndicator];
     }];

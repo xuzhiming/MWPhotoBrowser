@@ -13,12 +13,11 @@
 #import "SDWebImageOperation.h"
 #import <AssetsLibrary/AssetsLibrary.h>
 
-@interface MWPhoto () {
+@interface MWPhoto ()
 
-    BOOL _loadingInProgress;
-    id <SDWebImageOperation> _webImageOperation;
-        
-}
+@property(nonatomic, assign)BOOL loadingInProgress;
+@property(nonatomic, strong)id <SDWebImageOperation> webImageOperation;
+
 
 - (void)imageLoadingComplete;
 
@@ -96,6 +95,7 @@
 // Set the underlyingImage
 - (void)performLoadUnderlyingImageAndNotify {
     
+    __weak MWPhoto *ws = self;
     // Get underlying image
     if (_image) {
         
@@ -113,23 +113,23 @@
                 @autoreleasepool {
                     @try {
                         ALAssetsLibrary *assetslibrary = [[ALAssetsLibrary alloc] init];
-                        [assetslibrary assetForURL:_photoURL
+                        [assetslibrary assetForURL:ws.photoURL
                                        resultBlock:^(ALAsset *asset){
                                            ALAssetRepresentation *rep = [asset defaultRepresentation];
                                            CGImageRef iref = [rep fullScreenImage];
                                            if (iref) {
-                                               self.underlyingImage = [UIImage imageWithCGImage:iref];
+                                               ws.underlyingImage = [UIImage imageWithCGImage:iref];
                                            }
-                                           [self performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
+                                           [ws performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
                                        }
                                       failureBlock:^(NSError *error) {
-                                          self.underlyingImage = nil;
+                                          ws.underlyingImage = nil;
                                           MWLog(@"Photo from asset library error: %@",error);
-                                          [self performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
+                                          [ws performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
                                       }];
                     } @catch (NSException *e) {
                         MWLog(@"Photo from asset library error: %@", e);
-                        [self performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
+                        [ws performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
                     }
                 }
             });
@@ -140,12 +140,12 @@
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                 @autoreleasepool {
                     @try {
-                        self.underlyingImage = [UIImage imageWithContentsOfFile:_photoURL.path];
-                        if (!_underlyingImage) {
+                        ws.underlyingImage = [UIImage imageWithContentsOfFile:ws.photoURL.path];
+                        if (!ws.underlyingImage) {
                             MWLog(@"Error loading photo from path: %@", _photoURL.path);
                         }
                     } @finally {
-                        [self performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
+                        [ws performSelectorOnMainThread:@selector(imageLoadingComplete) withObject:nil waitUntilDone:NO];
                     }
                 }
             });
@@ -162,7 +162,7 @@
                                                                   float progress = receivedSize / (float)expectedSize;
                                                                   NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:
                                                                                         [NSNumber numberWithFloat:progress], @"progress",
-                                                                                        self, @"photo", nil];
+                                                                                        ws?:[NSNull null], @"photo", nil];
                                                                   [[NSNotificationCenter defaultCenter] postNotificationName:MWPHOTO_PROGRESS_NOTIFICATION object:dict];
                                                               }
                                                           }
@@ -170,14 +170,14 @@
                                                              if (error) {
                                                                  MWLog(@"SDWebImage failed to download image: %@", error);
                                                              }
-                                                             _webImageOperation = nil;
-                                                             self.underlyingImage = image;
-                                                             [self imageLoadingComplete];
+                                                             ws.webImageOperation = nil;
+                                                             ws.underlyingImage = image;
+                                                             [ws imageLoadingComplete];
                                                          }];
             } @catch (NSException *e) {
                 MWLog(@"Photo from web: %@", e);
-                _webImageOperation = nil;
-                [self imageLoadingComplete];
+                ws.webImageOperation = nil;
+                [ws imageLoadingComplete];
             }
             
         }
@@ -194,6 +194,10 @@
 - (void)unloadUnderlyingImage {
     _loadingInProgress = NO;
 	self.underlyingImage = nil;
+}
+
+-(void)dealloc{
+    NSLog(@"%s", __PRETTY_FUNCTION__);
 }
 
 - (void)imageLoadingComplete {
